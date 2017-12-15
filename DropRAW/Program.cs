@@ -10,148 +10,155 @@ namespace DropRAW
         static CommandLineApplication app;
         static CommandOption optionBaseFolder;
         static CommandOption optionTargetFolder;
-        static CommandOption optionIgnoreExt;
 
 
         public static int Main(string[] args)
         {
-            app = new CommandLineApplication();
+            try
+            {
+                app = new CommandLineApplication();
 
-            app.HelpOption();
-            optionBaseFolder = app.Option("-b|--base <BASE_FOLDER>", "The base folder as a reference", CommandOptionType.SingleValue);
-            optionTargetFolder= app.Option("-t|--target <TARGET_FOLDER>", "The target folder from where the files will be removed", CommandOptionType.SingleValue);
-            optionIgnoreExt = app.Option("-i|--ignore_extention", "Ignore file extention name when doing comparison", CommandOptionType.NoValue);
+                app.HelpOption();
+                optionBaseFolder = app.Option("-b|--base <BASE_FOLDER>", "The base folder as a reference", CommandOptionType.SingleValue);
+                optionTargetFolder = app.Option("-t|--target <TARGET_FOLDER>", "The target folder from where the files will be removed", CommandOptionType.SingleValue);
 
-            Action handler = OnExecuteHandler;
-            app.OnExecute(handler);
+                Action handler = OnExecuteHandler;
+                app.OnExecute(handler);
 
-            return app.Execute(args);
+                return app.Execute(args);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return 0;
+            }
         }
 
         private static void OnExecuteHandler()
         {
             ConsoleOutput output = new ConsoleOutput();
 
-            string baseFolder = optionBaseFolder.HasValue() 
-                ? optionBaseFolder.Value() 
-                : string.Empty;
-
-            string targetFolder = optionTargetFolder.HasValue()
-                ? optionTargetFolder.Value()
-                : string.Empty;
-
-            bool ignoreExt = optionIgnoreExt.HasValue();                
-
-            //Exit if missing args
-            if (string.IsNullOrEmpty(baseFolder) || string.IsNullOrEmpty(targetFolder))
+            try
             {
-                app.ShowHelp();
-                return;
-            }
-            
-            //Check if folders exist
-            if(!Directory.Exists(baseFolder))
-            {
-                output.Error(string.Format("Base folder \"{0}\" does not exist!", baseFolder));
-                return;
-            }
-            if(!Directory.Exists(targetFolder))
-            {
-                output.Error(string.Format("Target folder \"{0}\" does not exist!", targetFolder));
-                return;
-            }
+                string baseFolder = optionBaseFolder.HasValue()
+                    ? optionBaseFolder.Value()
+                    : string.Empty;
 
-            //Check how many files needs to be removed
-            output.Info("Checking folders...");
-            List<string> filesToRemoveList = new List<string>(100);
-            string[] baseFiles = Directory.GetFiles(baseFolder);
-            string[] targetFiles = Directory.GetFiles(targetFolder);
+                string targetFolder = optionTargetFolder.HasValue()
+                    ? optionTargetFolder.Value()
+                    : string.Empty;
 
-            //Normailization file names
-            Dictionary<string, string> baseFilesList = new Dictionary<string, string>(baseFiles.Length);
-            Dictionary<string, string> targetFilesList = new Dictionary<string, string>(targetFiles.Length);
-            foreach(string b in baseFiles)
-            {
-                if (ignoreExt)
+                //Exit if missing args
+                if (string.IsNullOrEmpty(baseFolder) || string.IsNullOrEmpty(targetFolder))
+                {
+                    app.ShowHelp();
+                    return;
+                }
+
+                //Check if folders exist
+                if (!Directory.Exists(baseFolder))
+                {
+                    output.Error(string.Format("Base folder \"{0}\" does not exist!", baseFolder));
+                    return;
+                }
+                if (!Directory.Exists(targetFolder))
+                {
+                    output.Error(string.Format("Target folder \"{0}\" does not exist!", targetFolder));
+                    return;
+                }
+
+                //Check how many files needs to be removed
+                output.Info("Checking folders...");
+                List<string> filesToRemoveList = new List<string>(100);
+                string[] baseFiles = Directory.GetFiles(baseFolder);
+                string[] targetFiles = Directory.GetFiles(targetFolder);
+
+                //Normailization file names
+                Dictionary<string, string> baseFilesList = new Dictionary<string, string>(baseFiles.Length);
+                Dictionary<string, string> targetFilesList = new Dictionary<string, string>(targetFiles.Length);
+
+                //Always ignore file extensions when comparing file names
+                foreach (string b in baseFiles)
                 {
                     baseFilesList.Add(Path.GetFileNameWithoutExtension(b).ToLower(), b);
                 }
-                else
-                {
-                    baseFilesList.Add(Path.GetFileName(b).ToLower(), b);
-                }
-            }
-            foreach(string t in targetFiles)
-            {
-                if (ignoreExt)
+                foreach (string t in targetFiles)
                 {
                     targetFilesList.Add(Path.GetFileNameWithoutExtension(t).ToLower(), t);
                 }
-                else
-                {
-                    targetFilesList.Add(Path.GetFileName(t).ToLower(), t);
-                }
-            }
 
-            //Comparing base and target folders
-            bool found = false;
-            foreach (KeyValuePair<string, string> t in targetFilesList)
-            {
-                found = false;
-                foreach(KeyValuePair<string, string> b in baseFilesList)
+                //Comparing base and target folders
+                bool found = false;
+                foreach (KeyValuePair<string, string> t in targetFilesList)
                 {
-                    if(t.Key==b.Key)
+                    found = false;
+                    foreach (KeyValuePair<string, string> b in baseFilesList)
                     {
-                        //Found, keep target file
-                        found = true;
+                        if (t.Key == b.Key)
+                        {
+                            //Found, keep target file
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    //Not found, add file to removing list
+                    if (!found)
+                    {
+                        filesToRemoveList.Add(t.Value);
+                    }
+                }
+
+                int count = filesToRemoveList.Count;
+                //Exit if no file needs to be removed
+                if (count == 0)
+                {
+                    output.Info("No files detected to be removed.");
+                    return;
+                }
+
+                output.Info(string.Format("{0} files detected to be removed, continue? (Y = Yes, L = List The Files, Any Other Key = Abort)", count.ToString()));
+                ConsoleKeyInfo inputKey = Console.ReadKey();
+                Console.WriteLine();
+                switch (inputKey.Key)
+                {
+                    case ConsoleKey.L:
+                        {
+                            foreach (string f in filesToRemoveList)
+                            {
+                                output.Info(Path.GetFileName(f));
+                            }
+
+                            output.Info("Confirm to remove? (Y = Yes, Any Other Key = No)");
+                            inputKey = Console.ReadKey();
+                            Console.WriteLine();
+                            if (inputKey.Key == ConsoleKey.Y) goto case ConsoleKey.Y;
+                        }
                         break;
-                    }
-                }
-
-                //Not found, add file to removing list
-                if(!found)
-                {
-                    filesToRemoveList.Add(t.Value);
+                    case ConsoleKey.Y:
+                        {
+                            output.Info("Deleting files...");
+                            int i = 0;
+                            foreach (string f in filesToRemoveList)
+                            {
+                                File.Delete(f);
+                                i++;
+                            }
+                            output.Info(string.Format("{0} files removed!", i.ToString()));
+                        }
+                        break;
+                    default:
+                        {
+                            output.Info("User Abort!");
+                            return;
+                        }
                 }
             }
-
-            output.Info("{0} files detected to be removed, continue? (Y = Yes, L = List The Files, Any Other Key = Abort)");
-            ConsoleKeyInfo inputKey = Console.ReadKey();
-            Console.WriteLine();
-            switch(inputKey.KeyChar)
-            {              
-                case 'L':
-                    {
-                        foreach(string f in filesToRemoveList)
-                        {
-                            output.Info(Path.GetFileName(f));
-                        }
-
-                        output.Info("Confirm to remove? (Y = Yes, Any Other Key = No)");
-                        inputKey = Console.ReadKey();
-                        Console.WriteLine();
-                        if (inputKey.KeyChar == 'Y') goto case 'Y';
-                    }
-                    break;
-                case 'Y':
-                    {
-                        output.Info("Deleting files...");
-                        int i = 0;
-                        foreach (string f in filesToRemoveList)
-                        {
-                            File.Delete(f);
-                            i++;
-                        }
-                        output.Info(string.Format("{0} files removed!", i.ToString()));
-                    }
-                    break;
-                default:
-                    {
-                        output.Info("User Abort!");
-                        return;
-                    }                    
+            catch(Exception ex)
+            {
+                output.Error(ex);
+                return;
             }
-
         }
     }
 }

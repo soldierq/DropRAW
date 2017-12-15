@@ -1,7 +1,8 @@
 {
   "profiles": {
     "DropRAW": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "-b y:\\20170520\\jpg -t y:\\20170520"
     }
   }
 }
