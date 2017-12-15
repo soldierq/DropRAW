@@ -1,33 +1,157 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using McMaster.Extensions.CommandLineUtils;
-using System.Runtime.InteropServices;
 
 namespace DropRAW
 {
     public class Program
     {
+        static CommandLineApplication app;
+        static CommandOption optionBaseFolder;
+        static CommandOption optionTargetFolder;
+        static CommandOption optionIgnoreExt;
+
+
         public static int Main(string[] args)
         {
-            var app = new CommandLineApplication();
+            app = new CommandLineApplication();
 
             app.HelpOption();
-            var optionSubject = app.Option("-s|--subject <SUBJECT>", "The subject", CommandOptionType.SingleValue);
+            optionBaseFolder = app.Option("-b|--base <BASE_FOLDER>", "The base folder as a reference", CommandOptionType.SingleValue);
+            optionTargetFolder= app.Option("-t|--target <TARGET_FOLDER>", "The target folder from where the files will be removed", CommandOptionType.SingleValue);
+            optionIgnoreExt = app.Option("-i|--ignore_extention", "Ignore file extention name when doing comparison", CommandOptionType.NoValue);
 
-            app.OnExecute(() =>
-            {
-                var subject = optionSubject.HasValue()
-                    ? optionSubject.Value()
-                    : "world";
-
-                Console.WriteLine($"Hello {subject}!");
-
-                Console.ReadLine();
-
-                return 0;
-            });
-
+            Action handler = OnExecuteHandler;
+            app.OnExecute(handler);
 
             return app.Execute(args);
+        }
+
+        private static void OnExecuteHandler()
+        {
+            ConsoleOutput output = new ConsoleOutput();
+
+            string baseFolder = optionBaseFolder.HasValue() 
+                ? optionBaseFolder.Value() 
+                : string.Empty;
+
+            string targetFolder = optionTargetFolder.HasValue()
+                ? optionTargetFolder.Value()
+                : string.Empty;
+
+            bool ignoreExt = optionIgnoreExt.HasValue();                
+
+            //Exit if missing args
+            if (string.IsNullOrEmpty(baseFolder) || string.IsNullOrEmpty(targetFolder))
+            {
+                app.ShowHelp();
+                return;
+            }
+            
+            //Check if folders exist
+            if(!Directory.Exists(baseFolder))
+            {
+                output.Error(string.Format("Base folder \"{0}\" does not exist!", baseFolder));
+                return;
+            }
+            if(!Directory.Exists(targetFolder))
+            {
+                output.Error(string.Format("Target folder \"{0}\" does not exist!", targetFolder));
+                return;
+            }
+
+            //Check how many files needs to be removed
+            output.Info("Checking folders...");
+            List<string> filesToRemoveList = new List<string>(100);
+            string[] baseFiles = Directory.GetFiles(baseFolder);
+            string[] targetFiles = Directory.GetFiles(targetFolder);
+
+            //Normailization file names
+            Dictionary<string, string> baseFilesList = new Dictionary<string, string>(baseFiles.Length);
+            Dictionary<string, string> targetFilesList = new Dictionary<string, string>(targetFiles.Length);
+            foreach(string b in baseFiles)
+            {
+                if (ignoreExt)
+                {
+                    baseFilesList.Add(Path.GetFileNameWithoutExtension(b).ToLower(), b);
+                }
+                else
+                {
+                    baseFilesList.Add(Path.GetFileName(b).ToLower(), b);
+                }
+            }
+            foreach(string t in targetFiles)
+            {
+                if (ignoreExt)
+                {
+                    targetFilesList.Add(Path.GetFileNameWithoutExtension(t).ToLower(), t);
+                }
+                else
+                {
+                    targetFilesList.Add(Path.GetFileName(t).ToLower(), t);
+                }
+            }
+
+            //Comparing base and target folders
+            bool found = false;
+            foreach (KeyValuePair<string, string> t in targetFilesList)
+            {
+                found = false;
+                foreach(KeyValuePair<string, string> b in baseFilesList)
+                {
+                    if(t.Key==b.Key)
+                    {
+                        //Found, keep target file
+                        found = true;
+                        break;
+                    }
+                }
+
+                //Not found, add file to removing list
+                if(!found)
+                {
+                    filesToRemoveList.Add(t.Value);
+                }
+            }
+
+            output.Info("{0} files detected to be removed, continue? (Y = Yes, L = List The Files, Any Other Key = Abort)");
+            ConsoleKeyInfo inputKey = Console.ReadKey();
+            Console.WriteLine();
+            switch(inputKey.KeyChar)
+            {              
+                case 'L':
+                    {
+                        foreach(string f in filesToRemoveList)
+                        {
+                            output.Info(Path.GetFileName(f));
+                        }
+
+                        output.Info("Confirm to remove? (Y = Yes, Any Other Key = No)");
+                        inputKey = Console.ReadKey();
+                        Console.WriteLine();
+                        if (inputKey.KeyChar == 'Y') goto case 'Y';
+                    }
+                    break;
+                case 'Y':
+                    {
+                        output.Info("Deleting files...");
+                        int i = 0;
+                        foreach (string f in filesToRemoveList)
+                        {
+                            File.Delete(f);
+                            i++;
+                        }
+                        output.Info(string.Format("{0} files removed!", i.ToString()));
+                    }
+                    break;
+                default:
+                    {
+                        output.Info("User Abort!");
+                        return;
+                    }                    
+            }
+
         }
     }
 }
