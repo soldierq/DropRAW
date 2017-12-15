@@ -5,14 +5,13 @@ When you delete the photo on SD card from camera's menu, it doesn't delete the s
 
 So this small app is designed to delete those photos on CF card which have been already deleted from SD card.
 
-Example:
+## Example:
 
-dotnet dropRAW.dll -b f:\\jpg -t g:\\raw
+    dotnet dropRAW.dll -b f:\\jpg -t g:\\raw
 
-Usage:  [options]
-
-Options:
-  -?|-h|--help                 Show help information
-  -b|--base <BASE_FOLDER>      The base folder as a reference
-  -t|--target <TARGET_FOLDER>  The target folder from where the files will be removed
+## Usage: dotnet dropRAW.dll [options]
+    Options:
+    -?|-h|--help                 Show help information
+    -b|--base <BASE_FOLDER>      The base folder as a reference
+    -t|--target <TARGET_FOLDER>  The target folder from where the files will be removed
 
