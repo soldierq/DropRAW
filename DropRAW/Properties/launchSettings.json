@@ -2,7 +2,7 @@
   "profiles": {
     "DropRAW": {
       "commandName": "Project",
-      "commandLineArgs": "-b y:\\20170520\\jpg -t y:\\20170520"
+      "commandLineArgs": "-b H:\\DCIM\\100CANON -t \\\\storage.lan\\gallery\\canon_r6"
     }
   }
 }

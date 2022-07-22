@@ -76,15 +76,18 @@ namespace DropRAW
                 //Normailization file names
                 Dictionary<string, string> baseFilesList = new Dictionary<string, string>(baseFiles.Length);
                 Dictionary<string, string> targetFilesList = new Dictionary<string, string>(targetFiles.Length);
+                string key = string.Empty;
 
                 //Always ignore file extensions when comparing file names
                 foreach (string b in baseFiles)
                 {
-                    baseFilesList.Add(Path.GetFileNameWithoutExtension(b).ToLower(), b);
+                    key = Path.GetFileNameWithoutExtension(b).ToLower();
+                    if (!string.IsNullOrEmpty(key)) baseFilesList.Add(key, b);
                 }
                 foreach (string t in targetFiles)
                 {
-                    targetFilesList.Add(Path.GetFileNameWithoutExtension(t).ToLower(), t);
+                    key = Path.GetFileNameWithoutExtension(t).ToLower();
+                    if (!string.IsNullOrEmpty(key)) targetFilesList.Add(key, t);
                 }
 
                 //Comparing base and target folders
